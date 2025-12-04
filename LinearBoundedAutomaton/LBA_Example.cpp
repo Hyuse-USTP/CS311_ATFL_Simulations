@@ -3,107 +3,172 @@
 #include <vector>
 #include <limits>
 
-// Removed 'using namespace std;'
+// Enum class to represent the finite set of states for the LBA
+enum class State {
+    START,       // Q0
+    FIND_B,      // Q1
+    FIND_C,      // Q2
+    REWIND,      // Q3
+    CHECK_FINAL, // Q4
+    ACCEPT,
+    REJECT
+};
 
 // Simulates a Linear Bounded Automaton (LBA) for L = {a^n b^n c^n : n >= 1}
-// This simulation mimics the tape head movement and state transitions.
+// This simulation follows the formal definition:
+// - Finite set of states
+// - Transition function δ(q, a) = (q', b, D)
+// - Head movement limited to +1 (Right) or -1 (Left) per step
 class LBA {
 public:
-    LBA(std::string input) : tape(input), head(0) {}
+    LBA(std::string input) : tape(input), head(0), currentState(State::START) {}
 
     bool run() {
-        // We treat the string as the tape. 
-        // The LBA is bounded, so we cannot go beyond tape.length().
-        
-        // Algorithm:
-        // 1. Find left-most 'a', mark as 'X'.
-        // 2. Move right to find matching 'b', mark as 'Y'.
-        // 3. Move right to find matching 'c', mark as 'Z'.
-        // 4. Move left back to 'X'.
-        // 5. Repeat.
-        // 6. If we finish and tape is all X, Y, Z, accept.
-
-        while (true) {
-            // Reset head to start (simplification of "moving left until boundary")
-            head = 0;
-
-            // Step 1: Find first unmarked 'a'
-            while (head < tape.length() && (tape[head] == 'X' || tape[head] == 'Y' || tape[head] == 'Z')) {
-                head++;
+        // Main Loop: continues until the machine enters an ACCEPT or REJECT state.
+        while (currentState != State::ACCEPT && currentState != State::REJECT) {
+            
+            // Boundary Check: The machine cannot move the head beyond the tape boundaries.
+            // In this simulation, we treat 'head == tape.length()' as the position just after the last character.
+            if (head < 0 || head > static_cast<int>(tape.length())) {
+                currentState = State::REJECT;
+                break;
             }
 
-            // If we hit the end, check if everything is marked
-            if (head == tape.length()) {
-                return isFullyMarked();
+            // Read the character under the head.
+            // If head is at tape.length(), we treat it as a special 'End of String' marker (often denoted as blank or null).
+            char currentChar = (head < static_cast<int>(tape.length())) ? tape[head] : '\0';
+
+            switch (currentState) {
+                case State::START: // Q0: Start state, looks for 'a' to mark or 'Y' if finished with 'a's
+                    if (currentChar == 'a') {
+                        tape[head] = 'X';           // Write 'X'
+                        head++;                     // Move Right
+                        currentState = State::FIND_B; 
+                    } else if (currentChar == 'Y') {
+                        // All 'a's have been processed (replaced by 'X').
+                        // Now we check if the rest of the string is valid.
+                        head++;                     // Move Right
+                        currentState = State::CHECK_FINAL; 
+                    } else {
+                        // Unexpected character (e.g., start with 'b', 'c', or 'Z')
+                        currentState = State::REJECT;
+                    }
+                    break;
+
+                case State::FIND_B: // Q1: Scan right to find the matching 'b'
+                    if (currentChar == 'a') {
+                        head++;                     // Move Right
+                        // Stay in FIND_B
+                    } else if (currentChar == 'Y') {
+                        head++;                     // Move Right (Skip already marked 'b's)
+                        // Stay in FIND_B
+                    } else if (currentChar == 'b') {
+                        tape[head] = 'Y';           // Write 'Y'
+                        head++;                     // Move Right
+                        currentState = State::FIND_C; 
+                    } else {
+                        // Found 'c', 'Z' too early, or End of String
+                        currentState = State::REJECT;
+                    }
+                    break;
+
+                case State::FIND_C: // Q2: Scan right to find the matching 'c'
+                    if (currentChar == 'b') {
+                        head++;                     // Move Right
+                        // Stay in FIND_C
+                    } else if (currentChar == 'Z') {
+                        head++;                     // Move Right (Skip already marked 'c's)
+                        // Stay in FIND_C
+                    } else if (currentChar == 'c') {
+                        tape[head] = 'Z';           // Write 'Z'
+                        head--;                     // Move Left !! Important: Direction change
+                        currentState = State::REWIND; 
+                    } else {
+                        // Found End of String or unexpected char
+                        currentState = State::REJECT;
+                    }
+                    break;
+
+                case State::REWIND: // Q3: Move left until we find 'X'
+                    if (currentChar == 'X') {
+                        head++;                     // Move Right (back to the first unmarked character)
+                        currentState = State::START; 
+                    } else {
+                        head--;                     // Move Left
+                        // Stay in REWIND
+                    }
+                    break;
+
+                case State::CHECK_FINAL: // Q4: Verify only 'Y' and 'Z' remain
+                    if (currentChar == '\0') {      // End of String reached
+                        currentState = State::ACCEPT;
+                    } else if (currentChar == 'Y' || currentChar == 'Z') {
+                        head++;                     // Move Right
+                        // Stay in CHECK_FINAL
+                    } else {
+                        // Found unmarked 'a', 'b', or 'c' -> Logic error or malformed input
+                        currentState = State::REJECT;
+                    }
+                    break;
+
+                default:
+                    currentState = State::REJECT;
+                    break;
             }
-
-            // If we found something that is not 'a' (and not XYZ), it's an error (e.g., 'b' before 'a' finished)
-            if (tape[head] != 'a') {
-                return false; 
-            }
-
-            // Mark 'a' -> 'X'
-            tape[head] = 'X';
-
-            // Step 2: Find matching 'b'
-            while (head < tape.length() && tape[head] != 'b') {
-                // While moving right, we should only see 'a's (unmarked) or 'Y's (marked bs) or 'Z' (marked cs? no, shouldn't see Z yet if strict)
-                // For simplicity, just scan for 'b'.
-                head++;
-            }
-
-            if (head == tape.length()) return false; // No matching 'b' found
-
-            // Mark 'b' -> 'Y'
-            tape[head] = 'Y';
-
-            // Step 3: Find matching 'c'
-            while (head < tape.length() && tape[head] != 'c') {
-                head++;
-            }
-
-            if (head == tape.length()) return false; // No matching 'c' found
-
-            // Mark 'c' -> 'Z'
-            tape[head] = 'Z';
-
-            // Step 4: Loop continues, simulating moving back to start implicitly
         }
+
+        return currentState == State::ACCEPT;
     }
 
 private:
     std::string tape;
-    size_t head;
-
-    bool isFullyMarked() {
-        for (char c : tape) {
-            if (c != 'X' && c != 'Y' && c != 'Z') {
-                return false;
-            }
-        }
-        return true;
-    }
+    int head;
+    State currentState;
 };
 
 int main() {
-    std::cout << "--- LBA Language Recognizer (a^n b^n c^n) ---" << std::endl;
-    std::cout << "This LBA machine checks if the input string is of the form a^n b^n c^n." << std::endl;
-    std::cout << "Logic: It simulates marking symbols on a tape (a->X, b->Y, c->Z)." << std::endl;
+    std::cout << "============================================" << std::endl;
+    std::cout << "   LBA SIMULATION: a^n b^n c^n (n >= 1)" << std::endl;
+    std::cout << "============================================" << std::endl;
+
+    std::cout << "\nFORMAL LBA DEFINITION M = (Q, Sigma, Gamma, delta, q0, q_accept, q_reject):" << std::endl;
+    std::cout << "  Q (States): { START (q0), FIND_B (q1), FIND_C (q2), REWIND (q3), CHECK_FINAL (q4), ACCEPT, REJECT }" << std::endl;
+    std::cout << "  Sigma (Input Alphabet): { a, b, c }" << std::endl;
+    std::cout << "  Gamma (Tape Alphabet): { a, b, c, X, Y, Z, \\0 }" << std::endl;
+    std::cout << "  q0 (Start State): START" << std::endl;
+    std::cout << "  delta (Transition Function Rules):" << std::endl;
+    std::cout << "    q0, a -> q1, X, R  (Mark 'a' as 'X')" << std::endl;
+    std::cout << "    q1, b -> q2, Y, R  (Mark 'b' as 'Y')" << std::endl;
+    std::cout << "    q2, c -> q3, Z, L  (Mark 'c' as 'Z', turn back)" << std::endl;
+    std::cout << "    q3, X -> q0, X, R  (Rewind to 'X', then restart)" << std::endl;
+    std::cout << "    q0, Y -> q4, Y, R  (All 'a's done, check rest)" << std::endl;
+    std::cout << "    q4, \\0 -> ACCEPT   (End of string, valid)" << std::endl;
+
+    std::cout << "\n--------------------------------------------" << std::endl;
+    std::cout << "INSTRUCTIONS:" << std::endl;
+    std::cout << "  - Enter strings to test." << std::endl;
+    std::cout << "  - Valid:   aaabbbccc, abc, aabbcc" << std::endl;
+    std::cout << "  - Invalid: aabbc, abbc, aabbccc" << std::endl;
+    std::cout << "--------------------------------------------" << std::endl;
 
     std::cout << "\nInput how many test cases you want to run: ";
     int test_cases;
     if (!(std::cin >> test_cases)) return 0;
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    std::cout << "Running " << test_cases << " test cases." << std::endl;
     
     while (test_cases-- > 0) {
         std::cout << "\nInput string (e.g., aaabbbccc): ";
         std::string test;
         std::getline(std::cin, test);
+        
+        // Echo input for visibility
+        std::cout << test << std::endl;
 
         LBA machine(test);
         
-        std::cout << "Testing '" << test << "': " 
-             << (machine.run() ? "Accepted" : "Rejected") << std::endl;
+        std::cout << "Result: " 
+             << (machine.run() ? "[ ACCEPTED ]" : "[ REJECTED ]") << std::endl;
     }
     return 0;
 }
