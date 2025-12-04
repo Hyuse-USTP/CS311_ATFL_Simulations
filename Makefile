@@ -4,7 +4,7 @@ CXXFLAGS = -std=c++11 -Wall
 # Define targets (executables)
 TARGETS = CFG_AND_PDA_Equivalence/CFG-PDA_Equivalence_Example \
           ChomskyNormalForm/CNF_Example \
-          "Context-Free Grammar/CFG_Example" \
+          Context-Free\ Grammar/CFG_Example \
           GreibachNormalForm/GNF_Example \
           LinearBoundedAutomaton/LBA_Example
 
@@ -20,8 +20,8 @@ ChomskyNormalForm/CNF_Example: ChomskyNormalForm/CNF_Example.cpp
 	$(CXX) $(CXXFLAGS) -o "$@" "$<"
 
 # Rule to build CFG Example (handles space in path)
-"Context-Free Grammar/CFG_Example": Context-Free\ Grammar/CFG_Example.cpp
-	$(CXX) $(CXXFLAGS) -o "Context-Free Grammar/CFG_Example" "Context-Free Grammar/CFG_Example.cpp"
+Context-Free\ Grammar/CFG_Example: Context-Free\ Grammar/CFG_Example.cpp
+	$(CXX) $(CXXFLAGS) -o "$@" "$<"
 
 # Rule to build GNF Example
 GreibachNormalForm/GNF_Example: GreibachNormalForm/GNF_Example.cpp
@@ -35,7 +35,7 @@ LinearBoundedAutomaton/LBA_Example: LinearBoundedAutomaton/LBA_Example.cpp
 clean:
 	rm -f CFG_AND_PDA_Equivalence/CFG-PDA_Equivalence_Example
 	rm -f ChomskyNormalForm/CNF_Example
-	rm -f "Context-Free Grammar/CFG_Example"
+	rm -f Context-Free\ Grammar/CFG_Example
 	rm -f GreibachNormalForm/GNF_Example
 	rm -f LinearBoundedAutomaton/LBA_Example
 
@@ -51,8 +51,8 @@ run_cnf: ChomskyNormalForm/CNF_Example
 	./ChomskyNormalForm/CNF_Example
 
 # Helper to run the CFG simulation
-run_cfg: "Context-Free Grammar/CFG_Example"
-	./"Context-Free Grammar/CFG_Example"
+run_cfg: Context-Free\ Grammar/CFG_Example
+	./Context-Free\ Grammar/CFG_Example
 
 # Helper to run the GNF simulation
 run_gnf: GreibachNormalForm/GNF_Example
