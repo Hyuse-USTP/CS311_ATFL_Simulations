@@ -3,7 +3,6 @@
 #include <stack>
 #include <limits>
 
-// Removed 'using namespace std;' to avoid namespace pollution
 
 bool simulatePDA(const std::string& input) {
     std::stack<char> pdaStack;
